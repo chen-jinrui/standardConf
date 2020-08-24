@@ -1,0 +1,9 @@
+{
+  "name": "standard_conf",
+  "version": "1.0.0",
+  "description": "project standard conf",
+  "main": "index.js",
+  "author": "chen",
+  "license": "MIT",
+  "private": false
+}
