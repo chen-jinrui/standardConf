@@ -7,6 +7,7 @@
 - TypeScript
 - ESLint
 - Prettier
+- Lint Staged
 
 ### Init
 
@@ -22,11 +23,11 @@
 - [commitlint](https://commitlint.js.org/#/)
 - [conventional-changelog](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog)
 
-配置以后会产生以下能力：
+配置以后会产生以下一些特性：
 
 - 使用 `git cz` 代替 `git commit` 进行符合 Angular 规范的 Commit Message 信息提交
 - 代码提交之前会通过 [husky](https://github.com/typicode/husky) 配合 git hook 进行提交信息校验，一旦提交信息不符合 Angular 规范，则提交会失败
-- 执行 `npm run log` 会在根目录下生成 `CHANGELOG.md` 版本日志
+- 执行 `npm run log` 会在根目录下自动生成 `CHANGELOG.md` 版本日志
 
 > **温馨提示**：如果不知道什么是 CLI （命令行接口），可查看 [使用 NPM 发布和使用 CLI 工具](https://juejin.im/post/5eb89053e51d454de54db501)。
 
@@ -124,7 +125,7 @@ gulp.task("default", function () {
 
 ### ESLint
 
-#### 背景
+#### ESLint背景
 
 TypeScript 的代码检查工具主要有 TSLint 和 ESLint 两种。早期的 TypeScript 项目一般采用 TSLint 进行检查，TSLint 和 TypeScript 采用同样的 AST 格式进行编译，但主要问题是对于 JavaScript 生态的项目支持不够友好，因此 TypeScript 团队在 2019 年宣布全面转向 ESLint，更多关于转向 ESLint 的原因可查看：
 
@@ -142,7 +143,7 @@ TypeScript 和 ESLint 使用不同的 AST 进行解析，因此为了在 ESLint 
 
 > **温馨提示**：如果你正在使用 TSLint，并且你希望兼容 ESLint 或者向 ESLint 进行过渡（TSLint 和 ESLint 并存）， 可查看 [Migrating from TSLint to ESLint](https://github.com/typescript-eslint/typescript-eslint#migrating-from-tslint-to-eslint)。除此之外，以上所介绍的这些包发布时版本一致（为了联合使用的适配性），如果还有什么需要注意的话你可能需要关心一下 `@typescript-eslint` 对于 TypeScript 和 ESLint 的版本支持性，更多可查看该库包的 @typescript-eslint/parser 的仓库信息。
 
-#### 配置
+#### ESLint配置
 
 从背景的介绍中可以理解，对于全新的 TypeScript 项目（直接抛弃 TSLint）需要包含解析 AST 的解析器 @typescript-eslint/parser 和使用校验规则的插件 @typescript-eslint/eslint-plugin，这里需要在项目中进行安装
 
@@ -230,7 +231,8 @@ VS Code 插件并不能确保代码上传或构建前无任何错误信息，此
 
 ```javascript
 "scripts": {
-  "lint": "eslint src --max-warnings 0",
+  "lint": "eslint src",
+  "lint-strict": "eslint src --max-warnings 0",
   "build": "npm run lint && rimraf dist types && gulp",
 }
 ```
@@ -247,6 +249,7 @@ VS Code 插件并不能确保代码上传或构建前无任何错误信息，此
 
 - [Npm 官方文档](https://docs.npmjs.com/)
 - [使用 NPM 发布和使用 CLI 工具](https://juejin.im/post/5eb89053e51d454de54db501)
+- [Top 10 JavaScript errors from 1000+ projects (and how to avoid them)](https://rollbar.com/blog/top-10-javascript-errors/)
 - [Cz 工具集使用介绍](https://juejin.im/post/5cc4694a6fb9a03238106eb9)（强烈推荐阅读）
 - [TypeScript 中文网](https://www.tslang.cn/)
 - [tsconfig.json 编译选项](https://www.tslang.cn/docs/handbook/compiler-options.html)
@@ -372,3 +375,67 @@ https://github.com/prettier/eslint-config-prettier#special-rules
 #### Prettier 确保代码上传
 
 和 ESLint 一样，尽管可能配置了 Prettier 的自动修复格式脚本以及 VS Code 插件，但是无法确保格式遗漏的情况，因此还需要一层保障能够确保代码提交之前能够进行 Prettier 格式化，这个配置将在 Lint Staged 中讲解，更多配置方案也可以查看 [Prettier - Pre-commit Hook](https://prettier.io/docs/en/precommit.html)。
+
+### Lint Staged
+
+#### Lint Staged 背景
+
+在 Git Commit Message 中使用了 [commitlint](https://commitlint.js.org/#/) 工具配合 husky 可以防止生成不规范的 Git Commit Message，从而阻止用户进行不规范的 Git 代码提交，其原理就是监听了 Git Hook 的执行脚本（会在特定的 Git 执行命令诸如 `commit`、`push`、`merge` 等触发之前或之后执行相应的脚本钩子）。Git Hook 其实是进行项目约束非常好用的工具，它的作用包括但不限于：
+
+- Git Commit Message 规范强制统一
+- ESLint 规则统一，防止不符合规范的代码提交
+- Prettier 自动格式化（类似的还包括 Style 样式格式等）
+- 代码稳定性提交，提交之前确保测试用例全部通过
+- 发送邮件通知
+- CI 集成（服务端钩子）
+
+Git Hook 的钩子非常多，但是在客户端中可能常用的钩子是以下两个：
+
+- `pre-commit`：Git 中 `pre` 系列钩子允许终止即将发生的 Git 操作，而`post` 系列往往用作通知行为。`pre-commit` 钩子在键入提交信息（运行 `git commit` 或 `git cz`）前运行，主要用于检查当前即将被提交的代码快照，例如提交遗漏、测试用例以及代码等。该钩子如果以非零值退出则 Git 将放弃本次提交。当然你也可以通过配置命令行参数 `git commit --no-verify` 绕过钩子的运行。
+- `commit-msg`：该钩子在用户输入 Commit Message 后被调用，接收存有当前 **Commit Message** 信息的临时文件路径作为唯一参数，因此可以利用该钩子来核对 Commit Meesage 信息（在 Git Commit Message 中使用了该钩子对提交信息进行了是否符合 Angular 规范的校验）。该钩子和 `pre-commit` 类似，一旦以非零值退出 Git 将放弃本次提交。
+
+除了上述常用的客户端钩子，还有两个常用的服务端钩子：
+
+- `pre-receive`：该钩子会在远程仓库接收 `git push` 推送的代码时执行（注意不是本地仓库），该钩子会比 `pre-commit` 更加有约束力（总会有这样或那样的开发人员不喜欢提交代码时所做的一堆检测，他们可能会选择绕过这些钩子）。`pre-receive` 钩子可用于接收代码时的强制规范校验，如果某个开发人员采用了绕过 `pre-commit` 钩子的方式提交了一堆 💩 一样的代码，那么通过设置该钩子可以拒绝代码提交。当然该钩子最常用的操作还是用于检查是否有权限推送代码、非快速向前合并等。
+- `post-receive`：该钩子在推送代码成功后执行，适合用于发送邮件通知或者触发 CI 。
+
+> **温馨提示**：想了解更多 Git Hook 信息可以查看 [Git Hook 官方文档](https://git-scm.com/book/zh/v2/%E8%87%AA%E5%AE%9A%E4%B9%89-Git-Git-%E9%92%A9%E5%AD%90) 或 [Git 钩子：自定义你的工作流](https://github.com/geeeeeeeeek/git-recipes/wiki/5.4-Git-%E9%92%A9%E5%AD%90%EF%BC%9A%E8%87%AA%E5%AE%9A%E4%B9%89%E4%BD%A0%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%B5%81)。
+
+需要注意初始化 Git 之后默认会在 `.git/hooks` 目录下生成所有 Git 钩子的 Shell 示例脚本，这些脚本是可以被定制化的。对于前端开发而言去更改这些示例脚本适配前端项目非常不友好（大多数前端开发同学压根不会设计 Shell 脚本，尽管这个对于制作工具是一件非常高效的事情），因此社区就出现了类似的增强工具，它们对外抛出的是简单的钩子配置（例如 [ghooks](https://github.com/ghooks-org/ghooks) 在 `package.json` 中只需要进行简单的[钩子属性配置](https://github.com/ghooks-org/ghooks#setup)），而在内部则通过替换 Git 钩子示例脚本的形式使得外部配置的钩子可以被执行，例如 [husky](https://github.com/typicode/husky)、ghooks 以及 [pre-commit](https://github.com/pre-commit/pre-commit) 等。
+
+> **温馨提示**： Git Hook 还可以定制脚本执行的语言环境，例如对于前端而言当然希望使用熟悉的 Node 进行脚本设计，此时可以通过在脚本文件的头部设置 `#! /usr/bin/env node` 将 Node 作为可执行文件的环境解释器，如果你之前看过 [使用 NPM 发布和使用 CLI 工具](https://juejin.im/post/5eb89053e51d454de54db501) 可能会对这个环境解析器相对熟悉，这里也给出一个使用 Node 解释器的示例：[ghooks - hook.template.raw](https://github.com/ghooks-org/ghooks/blob/master/lib/hook.template.raw)，ghooks 的实现非常简单，感兴趣的同学可以仔细阅读一些源码的实现。
+
+介绍 Git Hook 是为了让大家清晰的认知到使用 Hook 可以在前端的工程化项目中做很多事情（本来应该放在 Git Commit Message 中介绍相对合适，但是鉴于那个小节引用了另外一篇文章，因此将这个信息放在本小节进行科普）。
+
+之前提到使用 Git Hook 可以进行 ESLint 规范约束，因此大家其实应该能够猜到使用 `pre-commit` 钩子（当然需要借助 Git Hook 增强工具，本项目中一律选择 `husky`）配合 ESLint 可以进行提交说明前的项目代码规则校验，但是如果项目越来越大，ESLint 校验的时间可能越来越长，这对于频繁的代码提交者而言可能是一件相对痛苦的事情，因此可以借助 `lint-staged` 工具（听这个工具的名字就能够猜测 lint 的是已经放入 Git Stage 暂存区中的代码，`ed` 在英文中表明已经做过）减少代码的检测量。
+
+#### Lint Staged 配置
+
+使用 [commitlint](https://commitlint.js.org/#/) 工具可以防止生成不规范的 Git Commit Message，从而阻止用户进行 Git 代码提交。但是如果想要防止团队协作时开发者提交不符合 ESLint 规则的代码则可以通过 [lint-staged](https://github.com/okonet/lint-staged) 工具来实现。`lint-staged` 可以在用户提交代码之前（生成 Git Commit Message 信息之前）使用 ESLint 检查 Git 暂存区中的代码信息（`git add` 之后的修改代码），一旦存在 💩 一样不符合校验规则的代码，则可以终止提交行为。需要注意的是 `lint-staged` 不会检查项目的全量代码（全量使用 ESLint 校验对于较大的项目可能会是一个相对耗时的过程），而只会检查添加到 Git 暂存区中的代码。根据官方文档执行以下命令自动生成配置项信息：
+
+```javascript
+npx mrm lint-staged
+```
+
+需要注意默认生成的配置文件是针对 JavaScript 环境的，手动修改 `package.json` 中的配置信息进行 TypeScript 适配：
+
+
+```javascript
+// 我们的哈士奇再次上场，这次它是要咬着你的 ESLint 不放了，这里我简称它的动作为 "咬 💩" ~~~
+"husky": {
+  "hooks": {
+    "pre-commit": "lint-staged"
+  }
+},
+"lint-staged": {
+  // 这里需要注意 ESLint 脚本的 --max-warnings 0
+  // 否则就算存在 warning 也不会终止提交行为
+  // 这里追加了 Prettier 的自动格式化，确保代码提交之前所有的格式能够修复
+  "*.ts": "npm run lint-strict"
+}
+```
+
+此时如果将要提交的代码有 💩 , 则提交时会提示错误信息且提交会被强制终止：
+
+husky 在 `package.json` 中配置了 `pre-commit` 和 `commit-msg` 两个 [Git 钩子](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)，优先使用 `pre-commit` 钩子执行 ESLint 校验，如果校验失败则终止运行。如果校验成功则会继续执行 `commit-msg` 校验 Git Commit Message。
+

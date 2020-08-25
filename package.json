@@ -11,10 +11,11 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "prebuild": "npm run lint && npm run prettier && npm run test",
+    "prebuild": "npm run lint-strict && npm run prettier && npm run test",
     "build": "rimraf dist types && gulp",
     "log": "rimraf CHANGELOG.md && conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md",
-    "lint": "eslint src --max-warnings 0",
+    "lint": "eslint src",
+    "lint-strict": "eslint src --max-warnings 0",
     "prettier": "prettier src test --write"
   },
   "devDependencies": {
@@ -29,6 +30,7 @@
     "gulp": "^4.0.2",
     "gulp-typescript": "^6.0.0-alpha.1",
     "husky": "^4.2.5",
+    "lint-staged": "^10.2.11",
     "merge2": "^1.4.1",
     "prettier": "^2.1.0",
     "rimraf": "^3.0.2",
@@ -41,14 +43,14 @@
   },
   "husky": {
     "hooks": {
+      "pre-commit": "lint-staged",
       "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
     }
   },
   "lint-staged": {
     "*.ts": [
       "npm run lint",
-      "npm run prettier",
-      "npm run test"
+      "npm run prettier"
     ]
   }
 }
