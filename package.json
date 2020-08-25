@@ -11,17 +11,21 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "build": "rimraf dist types && gulp",
-    "log": "rimraf CHANGELOG.md && conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md"
+    "build": "npm run lint && rimraf dist types && gulp",
+    "log": "rimraf CHANGELOG.md && conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md",
+    "lint": "eslint src --max-warnings 0"
   },
   "devDependencies": {
     "@commitlint/cli": "^9.1.2",
     "@commitlint/config-conventional": "^9.1.2",
+    "@typescript-eslint/eslint-plugin": "^3.10.0",
+    "@typescript-eslint/parser": "^3.10.0",
     "conventional-changelog-cli": "^2.1.0",
     "cz-customizable": "^6.3.0",
-    "husky": "^4.2.5",
+    "eslint": "^7.7.0",
     "gulp": "^4.0.2",
     "gulp-typescript": "^6.0.0-alpha.1",
+    "husky": "^4.2.5",
     "merge2": "^1.4.1",
     "rimraf": "^3.0.2",
     "typescript": "^4.0.2"

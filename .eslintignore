@@ -1,0 +1,14 @@
+# gulp
+gulpfile.js
+
+# eslint
+.eslintrc.js
+
+# commitizen
+commitlint.config.js
+
+# jest
+jest.config.js
+
+# build
+dist
