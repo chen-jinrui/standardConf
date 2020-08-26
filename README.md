@@ -232,7 +232,7 @@ VS Code 插件并不能确保代码上传或构建前无任何错误信息，此
 ```javascript
 "scripts": {
   "lint": "eslint src",
-  "lint-strict": "eslint src --max-warnings 0",
+  "lint": "eslint src --max-warnings 0",
   "build": "npm run lint && rimraf dist types && gulp",
 }
 ```
@@ -431,7 +431,7 @@ npx mrm lint-staged
   // 这里需要注意 ESLint 脚本的 --max-warnings 0
   // 否则就算存在 warning 也不会终止提交行为
   // 这里追加了 Prettier 的自动格式化，确保代码提交之前所有的格式能够修复
-  "*.ts": "npm run lint-strict"
+  "*.ts": "npm run lint"
 }
 ```
 
@@ -439,3 +439,307 @@ npx mrm lint-staged
 
 husky 在 `package.json` 中配置了 `pre-commit` 和 `commit-msg` 两个 [Git 钩子](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)，优先使用 `pre-commit` 钩子执行 ESLint 校验，如果校验失败则终止运行。如果校验成功则会继续执行 `commit-msg` 校验 Git Commit Message。
 
+### Jest
+
+#### 测试背景
+
+如果对于测试的概念和框架不是特别清楚，这里推荐一些可查看的文章：
+
+- [JavaScript 程序测试](https://javascript.ruanyifeng.com/tool/testing.html) - 全面的测试基础知识
+- [New to front-end testing? Start from the top of the pyramid!](https://dev.to/noriste/new-to-front-end-testing-start-from-the-top-of-the-pyramid-36kj) - 重点可以了解一下测试金字塔和测试置信度
+- [[译] JavaScript 单元测试框架：Jasmine, Mocha, AVA, Tape 和 Jest 的比较](https://juejin.im/post/5acc721a6fb9a028b77b23c9) - 单元测试框架对比中文版（2018）
+- [JavaScript unit testing frameworks in 2020: A comparison](https://raygun.com/blog/javascript-unit-testing-frameworks/) - 单元测试框架对比英文版（2020）
+
+除此之外，如果想了解一些额外的测试技巧，这里推荐一些社区的最佳实践：
+
+- [javascript-testing-best-practices](https://github.com/goldbergyoni/javascript-testing-best-practices/blob/master/readme-zh-CN.md)
+- [ui-testing-best-practices](https://github.com/NoriSte/ui-testing-best-practices)
+
+由于这里只是 Node 环境工具库包的单元测试，在对比了各个测试框架之后决定采用 [Jest](https://jestjs.io/) 进行单元测试：
+
+- 内置断言库可实现开箱即用（从 `it` 到 `expect`， Jest 将整个工具包放在一个地方）
+- Jest 可以可靠地并行运行测试，并且为了让加速测试进程，Jest 会优先运行之前失败的测试用例
+- 内置覆盖率报告，无需额外进行配置
+- 优秀的报错信息
+
+> **温馨提示**：前端测试框架很多，相比简单的单元测试，e2e 测试会更复杂一些（不管是测试框架的支持以及测试用例的设计）。之前使用过 Karma 测试管理工具配合 Mocha 进行浏览器环境测试，也使用过 PhantomJS 以及 Nightwatch（使用的都是皮毛），印象最深刻的是使用 [testcafe](https://github.com/DevExpress/testcafe) 测试框架（复杂的 API 官方文档），除此之外如果还感兴趣，也可以了解一下 [cypress](https://github.com/cypress-io/cypress) 测试框架。
+
+#### Jest 配置
+
+本项目的单元测试主要采用了 [Jest](https://jestjs.io/en/) 测试框架。Jest 如果需要对 TypeScript 进行支持，可以通过配合 Babel 的形式，具体可查看 [Jest - Using TypeScript](https://jestjs.io/docs/en/getting-started#using-typescript)，但是采用 Babel 会产生一些限制（具体可查看 [Babel 7 or TypeScript](https://kulshekhar.github.io/ts-jest/user/babel7-or-ts)）。由于本项目没有采用 Babel 进行转译，并且希望能够完美支持类型检查，因此采用 [ts-jest](https://kulshekhar.github.io/ts-jest/user/install#customizing) 进行单元测试。按照官方教程进行依赖安装和项目初始化：
+
+```javascript
+npm install --save-dev jest ts-jest @types/jest
+npx ts-jest config:init
+```
+
+在根目录的 `jest.config.js` 文件中进行 Jest 配置修改：
+
+```javascript
+module.exports = {
+  preset: "ts-jest",
+  testEnvironment: "node",
+  // 输出覆盖信息文件的目录
+  coverageDirectory: "./coverage/",
+  // 覆盖信息的忽略文件模式
+  testPathIgnorePatterns: ["<rootDir>/node_modules/"],
+  // 如果测试覆盖率未达到 100%，则测试失败
+  // 这里可用于预防代码构建和提交
+  coverageThreshold: {
+    global: {
+      branches: 100,
+      functions: 100,
+      lines: 100,
+      statements: 100,
+    },
+  },
+  // 路径映射配置，具体可查看 https://kulshekhar.github.io/ts-jest/user/config/#paths-mapping
+  // 需要配合 TypeScript 路径映射，具体可查看：https://www.tslang.cn/docs/handbook/module-resolution.html
+  moduleNameMapper: {
+    "^@/(.*)$": "<rootDir>/src/$1",
+  },
+};
+```
+
+需要注意路径映射也需要配置 `tsconfig.json` 中的 `paths` 信息，同时注意将测试代码包含到 TypeScript 的编译目录中。配置完成后在 `package.json` 中配置测试命令：
+
+```javascript
+"scripts": {
+  "test": "jest --bail --coverage",
+  "prebuild": "npm run lint && npm run prettier && npm run test",
+}
+```
+
+需要注意 Jest 中的这些配置信息（更多配置信息可查看 [Jest CLI Options](https://jestjs.io/docs/zh-Hans/cli)）：
+
+- `bail` 的配置作用相对类似于 ESLint 中的 `max-warnings`，设置为 `true` 则表明一旦发现单元测试用例错误则停止运行其余测试用例，从而可以防止运行用例过多时需要一直等待用例全部运行完毕的情况。
+- `coverage` 主要用于在当前根目录下生成 `coverage` 代码的测试覆盖率报告，该报告还可以上传 [coveralls](https://coveralls.io/) 进行 Github 项目的 Badges 显示。
+
+> **温馨提示**：Jest CLI Options 中的 `findRelatedTests` 可用于配合 `pre-commit` 钩子去运行最少量的单元测试用例，可配合 `lint-staged` 实现类似于 ESLint 的作用，更多细节可查看 [`lint-staged - Use environment variables with linting commands`](https://github.com/okonet/lint-staged#use-environment-variables-with-linting-commands)。
+
+在当前根目录的 `test` 目录下新建 `greet.spec.ts` 文件，并设计以下测试代码：
+
+```javascript
+import greet from "@/greet";
+
+describe("src/greet.ts", () => {
+  it("name param test", () => {
+    expect(greet("world")).toBe("Hello from world 1");
+  });
+});
+```
+
+> **温馨提示**：测试文件有两种放置风格，一种是新建 `test` 文件夹，然后将所有的测试代码集中在 `test` 目录下进行管理，另外一种是在各个源码文件的同级目录下新建 `__test__` 目录，进行就近测试。大部分的项目可能都会倾向于采用第一种目录结构（可以随便找一些 github 上的开源项目进行查看，这里 `ts-test` 则是采用了第二种测试结构）。除此之外，需要注意 Jest 通过配置 [`testMatch`](https://jestjs.io/docs/zh-Hans/configuration#testmatch-arraystring) 或 [`testRegex`](https://jestjs.io/docs/zh-Hans/configuration#testregex-string--arraystring) 可以使得项目识别特定格式文件作为测试文件进行运行（本项目采用默认配置可识别后缀为 `.spec` 的文件进行单元测试）。
+
+#### Jest 确保构建
+
+单独通过执行 `npm run test` 命令进行单元测试，这里演示执行构建命令时的单元测试（需要保证构建之前所有的单元测试用例都能通过）。如果测试失败，那么应该防止继续构建，例如进行失败的构建行为：
+
+```javascript
+bogon:standard_conf chenjr$ tyarn test
+yarn run v1.17.3
+$ jest --bail --coverage
+ts-jest[versions] (WARN) Version 4.0.2 of typescript installed has not been tested with ts-jest. If you're experiencing issues, consider using a supported version (>=3.8.0 <4.0.0-0). Please do not report issues in ts-jest if you are using unsupported versions.
+ FAIL  test/greet.spec.ts
+  src/greet.ts
+    ✕ name param test (16 ms)
+
+  ● src/greet.ts › name param test
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Hello from world 1"
+    Received: "Hello from world"
+
+      3 | describe("src/greet.ts", () => {
+      4 |   it("name param test", () => {
+    > 5 |     expect(greet("world")).toBe("Hello from world 1");
+        |                            ^
+      6 |   });
+      7 | });
+
+      at Object.<anonymous> (test/greet.spec.ts:5:28)
+
+---------|---------|----------|---------|---------|-------------------
+File     | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+---------|---------|----------|---------|---------|-------------------
+...files |     100 |      100 |     100 |     100 |                   
+ ...t.ts |     100 |      100 |     100 |     100 |                   
+---------|---------|----------|---------|---------|-------------------
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        2.796 s
+Ran all test suites.
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
+```
+
+需要注意由于是并行（`&&`）执行脚本，因此执行构建命令时（`npm run prebuild`）会先执行 ESLint 校验，如果 ESLint 校验失败那么退出构建，否则继续进行 Jest 单元测试。如果单元测试失败那么退出构建，只有当两者都通过时才会进行源码构建。
+
+#### Jest 确保代码上传
+
+除了预防不负责任的代码构建以外，还需要预防不负责任的代码提交。配合 `lint-staged` 可以防止未跑通单元测试的代码进行远程提交：
+
+```javascript
+"scripts": {
+  "lint": "eslint src --max-warnings 0",
+  "test": "jest --bail --coverage",
+},
+"lint-staged": {
+  "*.ts": [
+    "npm run lint",
+    "npm run test"
+  ]
+}
+```
+
+此时如果单元测试有误，都会停止代码提交：
+
+```javascript
+husky > pre-commit (node v12.13.1)
+[STARTED] Preparing...
+[SUCCESS] Preparing...
+[STARTED] Running tasks...
+[STARTED] Running tasks for *.ts
+[STARTED] npm run lint
+[SUCCESS] npm run lint
+[STARTED] npm run jest
+[FAILED] npm run jest [FAILED]
+[FAILED] npm run jest [FAILED]
+[SUCCESS] Running tasks...
+[STARTED] Applying modifications...
+[SKIPPED] Skipped because of errors from tasks.
+[STARTED] Reverting to original state because of errors...
+[SUCCESS] Reverting to original state because of errors...
+[STARTED] Cleaning up...
+[SUCCESS] Cleaning up...
+
+× npm run jest:
+FAIL test/greet.spec.ts
+  src/greet.ts
+    × name param test (4 ms)
+
+  ● src/greet.ts › name param test
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Hello from world 1"
+    Received: "Hello from world"
+
+      3 | describe("src/greet.ts", () => {
+      4 |   it("name param test", () => {
+    > 5 |     expect(greet("world")).toBe("Hello from world 1");
+        |                            ^
+      6 |   });
+      7 | });
+      8 |
+
+      at Object.<anonymous> (test/greet.spec.ts:5:28)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        1.339 s, estimated 3 s
+Ran all test suites related to files matching /C:\\Code\\Git\\algorithms\\src\\index.ts|C:\\Code\\Git\\algorithms\\test\\greet.spec.ts/i.
+npm ERR! code ELIFECYCLE
+npm ERR! errno 1
+npm ERR! algorithms-utils@1.0.0 jest: `jest --bail --findRelatedTests --coverage "C:/Code/Git/algorithms/src/index.ts" "C:/Code/Git/algorithms/test/greet.spec.ts"`
+npm ERR! Exit status 1
+npm ERR!
+npm ERR! Failed at the algorithms-utils@1.0.0 jest script.
+npm ERR! This is probably not a problem with npm. There is likely additional logging output above.
+
+npm ERR! A complete log of this run can be found in:
+npm ERR!     C:\Users\子弈\AppData\Roaming\npm-cache\_logs\2020-07-12T14_33_51_183Z-debug.log
+
+> algorithms-utils@1.0.0 jest C:\Code\Git\algorithms
+npm ERR! Exit status 1
+npm ERR!
+npm ERR! Failed at the algorithms-utils@1.0.0 jest script.
+npm ERR! This is probably not a problem with npm. There is likely additional logging output above.
+
+npm ERR! A complete log of this run can be found in:
+npm ERR!     C:\Users\子弈\AppData\Roaming\npm-cache\_logs\2020-07-12T14_33_51_183Z-debug.log
+
+> algorithms-utils@1.0.0 jest C:\Code\Git\algorithms
+> jest --bail --findRelatedTests --coverage "C:/Code/Git/algorithms/src/index.ts" "C:/Code/Git/algorithms/test/greet.spec.ts"
+
+----------|---------|----------|---------|---------|-------------------
+| File       | % Stmts   | % Branch   | % Funcs   | % Lines   | Uncovered Line #s   |
+| ---------- | --------- | ---------- | --------- | --------- | ------------------- |
+| All files  | 0         | 0          | 0         | 0         |
+| ---------- | --------- | ---------- | --------- | --------- | ------------------- |
+husky > pre-commit hook failed (add --no-verify to bypass)
+git exited with error code 1
+```
+
+> **温馨提示**：想要了解更多关于 Jest 的生态可以查看 [awesome-jest](https://github.com/jest-community/awesome-jest)。
+
+#### Jest 对于 ESLint 支持
+
+`src` 目录下的源码通过配置 `@typescript-eslint/eslint-plugin` 可进行推荐规则的 ESLint 校验，为了使得 `test` 目录下的测试代码能够进行符合 Jest 推荐规则的 ESLint 校验，可以通过配置 [eslint-plugin-jest](https://github.com/jest-community/eslint-plugin-jest) 进行支持（`ts-jest` 项目就是采用了该插件进行 ESLint 校验，具体可查看配置文件 [`ts-jest/.eslintrc.js`](https://github.com/kulshekhar/ts-jest/blob/master/.eslintrc.js#L12)），这里仍然采用推荐的规则配置：
+
+```javascript
+module.exports = {
+  root: true,
+  parser: "@typescript-eslint/parser",
+  plugins: ["@typescript-eslint"],
+  extends: [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    // 新增推荐的 ESLint 校验规则
+    // 所有规则集查看：https://github.com/jest-community/eslint-plugin-jest#rules（recommended 标识表明是推荐规则）
+    "plugin:jest/recommended",
+  ],
+};
+```
+
+为了验证推荐规则是否生效，这里可以找一个 [`no-identical-title`](https://github.com/jest-community/eslint-plugin-jest/blob/master/docs/rules/no-identical-title.md) 规则进行验证：
+
+```javascript
+import greet from "@/greet";
+describe("src/greet.ts", () => {
+  it("name param test", () => {
+    expect(greet("world")).toBe("Hello from world 1");
+  });
+});
+
+// 这里输入了重复的 title
+describe("src/greet.ts", () => {
+  it("name param test", () => {
+    expect(greet("world")).toBe("Hello from world 1");
+  });
+});
+```
+
+需要注意修改 `package.json` 中的 ESLint 校验范围：
+
+```javascript
+"scripts": {
+  // 这里对 src 和 test 目录进行 ESLint 校验
+  "lint": "eslint src test --max-warnings 0",
+},
+```
+
+执行 `npm run lint` 进行单元测试的格式校验：
+
+```javascript
+bogon:standard_conf chenjr$ tyarn lint
+
+yarn run v1.17.3
+$ eslint src test --max-warnings 0
+
+/Users/chenjr/Documents/self/standard_conf/test/greet.spec.ts
+  10:10  error  Describe block title is used multiple times in the same describe block  jest/no-identical-title
+
+✖ 1 problem (1 error, 0 warnings)
+
+error Command failed with exit code 1.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
+
+```
+
+此时会发现 ESLint 抛出了相应的错误信息。需要注意采用此 ESLint 校验之后也会在 VS Code 中实时生成错误提示（相应的代码下会有红色波浪线，鼠标移入后会产生 Tooltip 提示该错误的相应规则信息，除此之外当前工程目录下对应的文件名也会变成红色），**此后的 Git 提交以及 Build 构建都会失败**！
+
+> **温馨提示**：如果你希望 Jest 测试的代码需要一些格式规范，那么可以查看 [eslint-plugin-jest-formatting](https://github.com/dangreenisrael/eslint-plugin-jest-formatting) 插件。
