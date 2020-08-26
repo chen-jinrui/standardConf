@@ -763,7 +763,225 @@ npm run prebuild && npm run build
 
 > **温馨提示**：大家可能会奇怪什么地方需要类似于 `preinstall` 或 `preuninstall` 这样的钩子，例如查看 [husky - package.json](https://github.com/typicode/husky/blob/master/package.json)，husky 在安装的时候因为要植入 Git Hook 脚本从而带来了一些副作用（此时当然可以通过 `preinstall` 触发 Git Hook 脚本植入的逻辑）。如果不想使用 husky，那么卸载后需要清除植入的脚本从而不妨碍原有的 Git Hook 功能。 当然如果想要了解更多关于 npm 脚本的信息，可以查看 [npm-scripts](https://www.npmjs.cn/misc/scripts/) 或 [npm scripts 使用指南](http://www.ruanyifeng.com/blog/2016/10/npm_scripts.html?utm_source=tuicool&utm_medium=referral)。
 
+### Vuepress
 
+#### Vuepress 背景
+
+一般组件库或工具库都需要设计一个演示文档（提供良好的开发体验）。一般的工具库可以采用 [tsdoc](https://github.com/Microsoft/tsdoc)、[jsdoc](https://github.com/jsdoc/jsdoc) 或 [esdoc](https://github.com/esdoc/esdoc) 等工具进行 API 文档的自动生成，但往往需要符合一些注释规范，这些注释规范在某种程度上可能会带来开发负担，当然也可以交给 VS Code 的插件进行一键生成，例如 [Document This For jsdoc](https://marketplace.visualstudio.com/items?itemName=joelday.docthis) 或 [TSDoc Comment](https://marketplace.visualstudio.com/items?itemName=kingsimba.tsdoc-comment)。
+
+组件库 Element UI 采用 [vue-markdown-loader](https://github.com/QingWei-Li/vue-markdown-loader#with-vue-cli-3)(Convert Markdown file to Vue Component using markdown-it) 进行组件的 Demo 演示设计，但是配置相对复杂。更简单的方式是配合 [Vuepress](https://www.vuepress.cn/) 进行设计，它的功能非常强大，但前提是熟悉 Vue，因为可以在 Markdown 中使用 Vue 语法。当然如果是 React 组件库的 Demo 演示，则可以采用 [dumi](https://d.umijs.org/guide) 生成组件 Demo 演示文档（不知道没有更加好用的类 Vuepress 的 React 组件文档生成器， 更多和 React 文档相关也可以了解 [react-markdown](https://github.com/rexxars/react-markdown#readme)、[react-static](https://github.com/react-static/react-static) 等）。
+
+由于之前采用过 Vuepress 设计 Vue 组件库的 Demo 演示文档，因此这里仍然沿用它来设计工具库包的 API 文档（如果你想自动生成 API 文档，也可以额外配合 tsdoc 工具）。采用 Vuepress 设计文档的主要特点如下：
+
+- 可以在 Markdown 中直接使用 Vue（还可以自定义 Vue 文档视图组件）
+- 内置了很多 Markdown 拓展
+- 可以使用 Webpack 进行构建定制化配置
+- 默认主题支持搜索能力
+- 可以安装 Vuepress 插件（后续需要支持的 [Latex](https://www.latex-project.org/) 排版就可以利用现有的插件能力生成）
+- 默认响应式
+
+#### Vuepress 配置
+
+先按照官方的 [快速上手](https://www.vuepress.cn/guide/getting-started.html#%E5%BF%AB%E9%80%9F%E4%B8%8A%E6%89%8B) 文档进行依赖安装和 npm scripts 脚本设置：
+
+```javascript
+"scripts": {
+  "docs:dev": "vuepress dev docs",
+  "docs:build": "vuepress build docs"
+}
+```
+
+按照 Vuepress 官网**约定优于配置**的原则进行演示文档的[目录结构](https://www.vuepress.cn/guide/directory-structure.html)设计，官方的文档可能一下子难以理解，可以先设计一个最简单的目录：
+
+```javascript
+.
+├── docs
+│   ├── .vuepress
+│   │   └── config.js       # 配置文件
+│   └── README.md           # 文档首页
+└── package.json
+```
+
+根据[默认主题 / 首页](https://www.vuepress.cn/theme/default-theme-config.html#%E9%A6%96%E9%A1%B5)在 `docs/README.md` 进行首页设计：
+
+```javascript
+---
+home: true
+# heroImage: /hero.png
+heroText: algorithms-utils
+tagline: 算法与 TypeScript 实现
+actionText: 开始学习
+actionLink: /guide/
+features:
+  - title: 精简理论
+    details: 精简《算法导论》的内容，帮助自己更容易学习算法理论知识。
+  - title: 习题练习
+    details: 解答《算法导论》的习题，帮助自己更好的实践算法理论知识。
+  - title: 面题精选
+    details: 搜集常见的面试题目，提升自己的算法编程能力以及面试通过率。
+footer: MIT Licensed | Copyright © 2020-present 子弈
+---
+```
+
+根据[配置](https://www.vuepress.cn/config/#%E9%85%8D%E7%BD%AE) 对 `docs/.vuepress/config.js` 文件进行基本配置：
+
+```javascript
+const packageJson = require("../../package.json");
+
+module.exports = {
+  // 配置网站标题
+  title: packageJson.name,
+  // 配置网站描述
+  description: packageJson.description,
+  // 配置基本路径
+  base: "/algorithms/",
+  // 配置基本端口
+  port: "8080",
+};
+```
+
+此时通过 `npm run docs:dev` 进行开发态文档预览：
+
+```javascript
+PS C:\Code\Git\algorithms> npm run docs:dev
+
+> algorithms-utils@1.0.0 docs:dev C:\Code\Git\algorithms
+> vuepress dev docs
+
+wait Extracting site metadata...
+tip Apply theme @vuepress/theme-default ...
+tip Apply plugin container (i.e. "vuepress-plugin-container") ...
+tip Apply plugin @vuepress/register-components (i.e. "@vuepress/plugin-register-components") ...
+tip Apply plugin @vuepress/active-header-links (i.e. "@vuepress/plugin-active-header-links") ...
+tip Apply plugin @vuepress/search (i.e. "@vuepress/plugin-search") ...
+tip Apply plugin @vuepress/nprogress (i.e. "@vuepress/plugin-nprogress") ...
+
+√ Client
+  Compiled successfully in 5.31s
+
+i ｢wds｣: Project is running at http://0.0.0.0:8080/
+i ｢wds｣: webpack output is served from /algorithms-utils/
+i ｢wds｣: Content not from webpack is served from C:\Code\Git\algorithms\docs\.vuepress\public
+i ｢wds｣: 404s will fallback to /index.html
+success [23:13:14] Build 10b15a finished in 5311 ms!
+> VuePress dev server listening at http://localhost:8080/algorithms-utils/
+```
+
+效果如下：
+
+![](https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9097ed5468ba494db8bd74b7b607f0cf~tplv-k3u1fbpfcp-zoom-1.image)
+
+当然除了以上设计的首页，在本项目中还会设计[导航栏](https://www.vuepress.cn/theme/default-theme-config.html#%E5%AF%BC%E8%88%AA%E6%A0%8F)、[侧边栏](https://www.vuepress.cn/theme/default-theme-config.html#%E4%BE%A7%E8%BE%B9%E6%A0%8F)、使用[插件](https://www.vuepress.cn/plugin/)、[使用组件](https://www.vuepress.cn/guide/using-vue.html#%E4%BD%BF%E7%94%A8%E7%BB%84%E4%BB%B6)等。这里重点讲解一下 [Webpack 构建](https://www.vuepress.cn/config/#chainwebpack) 配置。
+
+为了在 Markdown 文档中可以使用 `src` 目录的 TypeScript 代码，这里对 `.vuepress/config.js` 文件进行配置处理：
+
+```javascript
+const packageJson = require("../../package.json");
+const sidebar = require("./config/sidebar.js");
+const nav = require("./config/nav.js");
+const path = require("path");
+
+module.exports = {
+  title: packageJson.name,
+  description: packageJson.description,
+  base: "/algorithms/",
+  port: "8080",
+
+  themeConfig: {
+    nav,
+    sidebar,
+  },
+
+  plugins: [
+    "vuepress-plugin-cat",
+    [
+      "mathjax",
+      {
+        target: "svg",
+        macros: {
+          "*": "\\times",
+        },
+      },
+    ],
+    // 增加 Markdown 文档对于 TypeScript 语法的支持
+    [
+      "vuepress-plugin-typescript",
+      {
+        tsLoaderOptions: {
+          // ts-loader 的所有配置项
+        },
+      },
+    ],
+  ],
+
+  chainWebpack: (config) => {
+    config.resolve.alias.set("image", path.resolve(__dirname, "public"));
+
+    // 在文档中模拟库包的引入方式
+    // 例如发布了 algorithms-utils 库包之后，
+    // import greet from 'algorithms-utils/greet.ts' 在 Vuepress 演示文档中等同于
+    // import greet from '~/src/greet.ts',
+    // 其中 ~ 在这里只是表示项目根目录
+    config.resolve.alias.set(
+      "algorithms-utils",
+      path.resolve(__dirname, "../../src")
+    );
+  },
+};
+```
+
+> **温馨提示**：这里的 Webpack 配置采用了 [webpack-chain](https://github.com/neutrinojs/webpack-chain) 链式操作，如果想要采用 Webpack 对象的配置方式则可以查看 [Vuepress - 构建流程 - configurewebpack](https://www.vuepress.cn/config/#configurewebpack)。
+
+此时可以在 Vuepress 的 Markdown 文档中进行 TypeScript 引入的演示文档设计：
+
+```javascript
+# Test vuepress
+
+::: danger 测试 Vuepress
+引入 greet.ts 并进行调用测试。
+:::
+
+<template>
+  <collapse title="查看答案">{{msg}}</collapse>
+</template>
+
+<template>
+  <div>{{msg}}</div>
+</template>
+
+<script lang="ts">
+  import greet from 'algorithms-utils/greet'
+  const msg = greet('ziyi')
+  export default {
+    data() {
+      return {
+         msg
+      }
+    },
+  }
+</script>
+
+```
+
+启动 Vuepress 查看演示文档：
+
+![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9ebbac359cfd43f8be3f1bf3c114afce~tplv-k3u1fbpfcp-zoom-1.image)
+
+可以发现在 Markdown 中引入的 `src/greet.ts` 代码生效了，最终通过 `npm run docs:build` 可以生成演示文档的静态资源进行部署和访问。
+
+> **温馨提示**：更多本项目的 Vuepress 配置信息可查看 Commit 信息，除此之外如果还想知道更多 Vuepress 的生态，例如有哪些有趣插件或主题，可查看 [awesome-vuepress](https://github.com/vuepressjs/awesome-vuepress) 或 [Vuepress 社区](https://vuepress.github.io/zh/)。
+
+#### 文档工具和规范
+
+通常在书写文档的时候很多同学都不注重文档的洁癖，其实书写文档和书写代码一样需要一些格式规范。[markdownlint](https://github.com/DavidAnson/markdownlint) 是类似于 ESLint 的 Markdown 格式校验工具，通过它可以更好的规范我们书写的文档。当然 Markdown 的格式校验不需要像 ESLint 或者 Prettier 校验那样进行强约束，简单的能够做到提示和 Save Auto Fix 即可。
+
+通过安装 Vs Code 插件 [markdownlint](https://marketplace.visualstudio.com/items?itemName=DavidAnson.vscode-markdownlint) 并进行 Save Auto Fix 配置（在插件中明确列出了哪些规则是可以被 Fix 的）。安装完成后查看刚刚进行的测试文件：
+
+![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ca3dab37867a4d6f9af0189819115514~tplv-k3u1fbpfcp-zoom-1.image)
+
+此时会发现插件生效了，但是在 Markdown 中插入 html 是必须的一个能力（Vuepress 支持的能力就是在 Markdown 中使用 Vue），因此可以通过 `.markdownlintrc` 文件将相应的规则屏蔽掉。
+
+> **温馨提示**：如果你希望在代码提交之前或文档构建之前能够进行 Markdown 格式校验，则可以尝试它的命令行接口 [markdownlint-cli](https://github.com/igorshubovych/markdownlint-cli)。除此之外，如果对文档的设计没有想法或者不清楚如何书写好的技术文档，可以查看 [技术文章的写作技巧分享](https://juejin.im/post/5ecbdff6e51d45783e17a7a1)，一定能让你有所收获。
 
 ## 链接文档
 
