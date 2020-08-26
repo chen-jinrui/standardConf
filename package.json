@@ -16,7 +16,7 @@
     "test": "jest --bail --coverage",
     "prebuild": "npm run lint && npm run prettier && npm run test",
     "build": "rimraf dist types && gulp",
-    "version": "rimraf CHANGELOG.md && conventional-changelog -p angular -i CHANGELOG.md -s",
+    "changelog": "rimraf CHANGELOG.md && conventional-changelog -p angular -i CHANGELOG.md -s",
     "docs:dev": "vuepress dev docs",
     "docs:build": "vuepress build docs"
   },

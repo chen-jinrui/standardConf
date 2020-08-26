@@ -4,6 +4,7 @@ node_modules
 # build
 dist
 types
+docs/.vuepress/dist
 
 # eslint
 .eslintcache 
