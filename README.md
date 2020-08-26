@@ -245,20 +245,6 @@ VS Code 插件并不能确保代码上传或构建前无任何错误信息，此
 
 尽管可能配置了 ESLint 的校验脚本 以及 VS Code 插件，但是有些 ESLint 的规则校验是无法通过 Save Auto Fix 进行格式化修复的（例如质量规则），因此还需要一层保障能够确保代码提交之前所有的代码能够通过 ESLint 校验，这个配置将在 Lint Staged 中进行讲解。
 
-#### 文档
-
-- [Npm 官方文档](https://docs.npmjs.com/)
-- [使用 NPM 发布和使用 CLI 工具](https://juejin.im/post/5eb89053e51d454de54db501)
-- [Top 10 JavaScript errors from 1000+ projects (and how to avoid them)](https://rollbar.com/blog/top-10-javascript-errors/)
-- [Cz 工具集使用介绍](https://juejin.im/post/5cc4694a6fb9a03238106eb9)（强烈推荐阅读）
-- [TypeScript 中文网](https://www.tslang.cn/)
-- [tsconfig.json 编译选项](https://www.tslang.cn/docs/handbook/compiler-options.html)
-- [gulp-typescript](https://github.com/ivogabe/gulp-typescript)
-- [ES modules: A cartoon deep-dive](https://hacks.mozilla.org/2018/03/es-modules-a-cartoon-deep-dive/)（强烈推荐阅读）
-- [ESLint 中文网](https://cn.eslint.org/)
-- [typescript-eslint](https://github.com/typescript-eslint/typescript-eslint)
-- [Getting Started - Linting your TypeScript Codebase](https://github.com/typescript-eslint/typescript-eslint/blob/master/docs/getting-started/linting/README.md)
-
 ### Prettier
 
 #### Prettier 背景
@@ -743,3 +729,58 @@ info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this comm
 此时会发现 ESLint 抛出了相应的错误信息。需要注意采用此 ESLint 校验之后也会在 VS Code 中实时生成错误提示（相应的代码下会有红色波浪线，鼠标移入后会产生 Tooltip 提示该错误的相应规则信息，除此之外当前工程目录下对应的文件名也会变成红色），**此后的 Git 提交以及 Build 构建都会失败**！
 
 > **温馨提示**：如果你希望 Jest 测试的代码需要一些格式规范，那么可以查看 [eslint-plugin-jest-formatting](https://github.com/dangreenisrael/eslint-plugin-jest-formatting) 插件。
+
+### Npm Script Hook
+
+当你查看前端开源项目时第一时间可能会找 `package.json` 中的 `main`、`bin` 以及 `files` 等字段信息，除此之外如果还想深入了解项目的结构，可能还会查看 `scripts` 脚本字段信息用于了解项目的开发、构建、测试以及安装等流程。npm 的脚本功能非常强大，你可以利用脚本制作项目需要的任何流程工具。本文不会过多介绍 npm 脚本的功能，只是讲解一下其中用到的 [钩子](https://www.npmjs.cn/misc/scripts/#description) 功能。
+
+目前在本项目中使用的一些脚本命令如下（就目前而言脚本相对较少，定义还蛮清晰的）：
+
+```javascript
+"lint": "eslint src test --max-warnings 0",
+"test": "jest --bail --coverage",
+"build": "npm run lint && npm run prettier && npm run test && rimraf dist types && gulp",
+"changelog": "rimraf CHANGELOG.md && conventional-changelog -p angular -i CHANGELOG.md -s"
+```
+
+重点看下 `build` 脚本命令，会发现这个脚本命令包含了大量的继发执行脚本，但真正和 `build` 相关的只有 `rimraf dist types && gulp` 这两个脚本。这里通过 npm 的脚本钩子 `pre` 和 `post` 将脚本的功能区分开，从而使脚本的语义更加清晰（当然脚本越来越多的时候也可能容易增加开发者的认知负担）。npm 除了指定一些特殊的脚本钩子以外（例如 `prepublish`、`postpublish`、`preinstall`、`postinstall`等），还可以对任意脚本增加 `pre` 和 `post` 钩子，这里通过自定义钩子将并发执行的脚本进行简化：
+
+```javascript
+"lint": "eslint src test --max-warnings 0",
+"test": "jest --bail --coverage",
+"prebuild": "npm run lint && npm run prettier && npm run test",
+"build": "rimraf dist types && gulp",
+"changelog": "rimraf CHANGELOG.md && conventional-changelog -p angular -i CHANGELOG.md -s"
+```
+
+此时如果执行 `npm run build` 命令时事实上类似于执行了以下命令：
+
+```javascript
+npm run prebuild && npm run build
+```
+
+之后设计的脚本如果继发执行繁多，那么都会采用 npm scripts hook 进行设计。
+
+> **温馨提示**：大家可能会奇怪什么地方需要类似于 `preinstall` 或 `preuninstall` 这样的钩子，例如查看 [husky - package.json](https://github.com/typicode/husky/blob/master/package.json)，husky 在安装的时候因为要植入 Git Hook 脚本从而带来了一些副作用（此时当然可以通过 `preinstall` 触发 Git Hook 脚本植入的逻辑）。如果不想使用 husky，那么卸载后需要清除植入的脚本从而不妨碍原有的 Git Hook 功能。 当然如果想要了解更多关于 npm 脚本的信息，可以查看 [npm-scripts](https://www.npmjs.cn/misc/scripts/) 或 [npm scripts 使用指南](http://www.ruanyifeng.com/blog/2016/10/npm_scripts.html?utm_source=tuicool&utm_medium=referral)。
+
+
+
+## 链接文档
+
+- [使用 NPM 发布和使用 CLI 工具](https://juejin.im/post/5eb89053e51d454de54db501)
+- [Top 10 JavaScript errors from 1000+ projects (and how to avoid them)](https://rollbar.com/blog/top-10-javascript-errors/)
+- [前端构建：3 类 13 种热门工具的选型参考](https://segmentfault.com/a/1190000017183743)
+- [Cz 工具集使用介绍](https://juejin.im/post/5cc4694a6fb9a03238106eb9)
+- [ES modules: A cartoon deep-dive](https://hacks.mozilla.org/2018/03/es-modules-a-cartoon-deep-dive/)（强烈推荐阅读）
+- [JavaScript 程序测试](https://javascript.ruanyifeng.com/tool/testing.html)
+- [New to front-end testing? Start from the top of the pyramid!](https://dev.to/noriste/new-to-front-end-testing-start-from-the-top-of-the-pyramid-36kj)
+- [JavaScript & Node.js Testing Best Practices](https://github.com/goldbergyoni/javascript-testing-best-practices/blob/master/readme-zh-CN.md)
+- [[译] JavaScript 单元测试框架：Jasmine, Mocha, AVA, Tape 和 Jest 的比较](https://juejin.im/post/5acc721a6fb9a028b77b23c9)
+- [JavaScript unit testing frameworks in 2020: A comparison](https://raygun.com/blog/javascript-unit-testing-frameworks/)
+- [javascript-testing-best-practices](https://github.com/goldbergyoni/javascript-testing-best-practices/blob/master/readme-zh-CN.md)
+- [ui-testing-best-practices](https://github.com/NoriSte/ui-testing-best-practices)
+- [npm scripts 使用指南](http://www.ruanyifeng.com/blog/2016/10/npm_scripts.html?utm_source=tuicool&utm_medium=referral)
+- [技术文章的写作技巧分享](https://juejin.im/post/5ecbdff6e51d45783e17a7a1)
+- [Introduction to CI/CD with GitLab（中文版）](https://s0docs0gitlab0com.icopy.site/ee/ci/introduction/index.html)
+- [GitHub Actions 入门教程](http://www.ruanyifeng.com/blog/2019/09/getting-started-with-github-actions.html)
+- [当我有服务器时我做了什么 · 个人服务器运维指南](https://shanyue.tech/op/#%E9%A2%84%E8%A7%88)

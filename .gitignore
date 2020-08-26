@@ -8,3 +8,6 @@ types
 # eslint
 .eslintcache 
 
+# jest
+coverage
+
